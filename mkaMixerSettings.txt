@@ -1,0 +1,4 @@
+chrome.exe
+ts3client_win64.exe
+GenshinImpact.exe
+League of Legends.exe
