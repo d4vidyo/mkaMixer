@@ -51,16 +51,16 @@ class controller():
 
     def readSerial(self):
         try:
-            if serialInst.in_waiting:
+            while serialInst.in_waiting:
                 incoming = serialInst.readline()
                 packet = incoming.decode("utf").rstrip("\r\n").split(' ')
                 print(packet)
                 if packet[0] == "ready":
                     self.ArduinoState = True
-                    return
+                    continue
                 if len(packet) < 2:
                     print(packet)
-                    return
+                    continue
                 if packet[1] == "SET":
                     self.setNewWindow(packet)
                 else:
@@ -91,6 +91,7 @@ class controller():
     def inputLoop(self):
         lastTime = time.time()
         while True:
+            time.sleep(0.01)
             if not self.port is self.settings.port:
                 self.port = self.settings.port
                 self.reconnect()
