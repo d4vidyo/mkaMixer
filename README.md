@@ -24,3 +24,19 @@ To install mkaMixer, follow these steps:
 4. Place a shortcut of the exe into your autostart folder ( Win + r , "shell:startup", Enter )
 5. Download the mkaMixer.ino File from the Arduino Code Folder and upload it to your Arduino
 
+## Dependencies
+```shell
+pip install customtkinter
+```
+```shell
+pip install PySide6
+```
+```shell
+pip install pywin32
+```
+```shell
+pip install pyserial
+```
+```shell
+pip install Pillow
+```
