@@ -9,6 +9,20 @@ import time
 
 class Window:
 
+    def updatePorts(self):
+        ports = serial.tools.list_ports.comports()      
+        portList = []
+        for port, desc, hwid in sorted(ports):
+            portList.append(desc)
+                        
+        self.Com.configure(values = portList)
+        selectedPort = "Searching..."
+        for port in portList:
+            if "COM" + str(self.settings.port) in port:
+                selectedPort = port
+        self.Com.set(selectedPort)
+
+
     def updateSliders(self):
         for slider in self.sliders:
             index = self.sliders.index(slider)
@@ -26,9 +40,10 @@ class Window:
 
     def update(self):
         self.status.configure(text=self.settings.connected,
-                              text_color = ("green") if self.settings.connected == "connected" else ("red"))
+                              text_color = ("green") if self.settings.connected == "Connected" else ("red") if self.settings.connected == "Not connected" else ("blue"))
         self.updateMenus()
         self.updateSliders()
+        self.updatePorts()
 
         self.root.update()
 
@@ -96,7 +111,7 @@ class Window:
         newPort = int(str(port).replace(")","").split("COM")[1])
         if not newPort is self.settings.port:
             self.settings.port = newPort       
-            self.settings.connected="not Connected"
+            self.settings.connected="Not connected"
 
     def buildComFrame(self):        
         self.comFrame = ctk.CTkFrame(master=self.root)

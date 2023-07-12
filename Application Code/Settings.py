@@ -8,7 +8,7 @@ class settings():
         self.NAME = NAME
         self.port = 4
         self.baudrate = 9600
-        self.connected = "not connected"
+        self.connected = "Not connected"
         self.list = []
 
     def setPort(self, p):

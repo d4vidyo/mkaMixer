@@ -7,20 +7,54 @@ serialInst = serial.Serial()
 
 class controller():
 
+    def checkPort(self, COMport):
+        ports = serial.tools.list_ports.comports()      
+        portList = []
+        for port, desc, hwid in sorted(ports):
+            portList.append(desc)
+        for entry in portList:
+            if COMport in entry:
+                return True
+        return False
+        
+
+    def findPort(self):
+        while self.ArduinoState is False:
+            time.sleep(0.01)
+            ports = serial.tools.list_ports.comports()      
+            portList = []
+            for port, desc, hwid in sorted(ports):
+                portList.append(port)
+
+            for port in portList:
+                serialInst.port=port
+                self.connect()
+                time.sleep(3)
+                self.readSerial()
+                if self.ArduinoState is True:
+                    self.port = port.strip("COM")
+                    self.settings.port=port.strip("COM")
+                    self.settings.saveSettings()
+                    return
+
+
     def connect(self):
-        serialInst.port = "COM" + str(self.settings.port)
+        if not self.checkPort(serialInst.port):
+            print("findingPort")
+            self.findPort()
+            return
+        
         try:
             serialInst.open()
-            self.settings.connected = "connected"
+            self.settings.connected = "Established com"
             return
         except Exception as e:
             print(e)
             time.sleep(1)
-            self.settings.connected = "not Connected"
+            self.settings.connected = "Not connected"
             return
                 
     def reconnect(self):
-        print("reconecting")
         try:
             serialInst.close()
             time.sleep(2)
@@ -54,21 +88,26 @@ class controller():
             while serialInst.in_waiting:
                 incoming = serialInst.readline()
                 packet = incoming.decode("utf").rstrip("\r\n").split(' ')
-                print(packet)
+                #print(packet)
                 if packet[0] == "ready":
                     self.ArduinoState = True
+                    self.settings.connected = "Connected"
                     continue
                 if len(packet) < 2:
                     print(packet)
                     continue
                 if packet[1] == "SET":
                     self.setNewWindow(packet)
+                elif packet[1] == "DOUBLE":
+                    print(packet)
+                    continue
                 else:
                     Audio.setWindowVolume(self.AudioSessions, self.settings.list[int(packet[0])].Name, float(packet[1]))
                     self.settings.list[int(packet[0])].Volume = int(float(packet[1]))
 
         except Exception as e:
             print(e)
+            self.ArduinoState=False
             self.connect()
             time.sleep(2)
             return
@@ -94,6 +133,7 @@ class controller():
             time.sleep(0.01)
             if not self.port is self.settings.port:
                 self.port = self.settings.port
+                serialInst.port = "COM" + str(self.settings.port)
                 self.reconnect()
             self.readSerial()
             if time.time() - lastTime > 1:
@@ -104,6 +144,7 @@ class controller():
 
     def __init__(self, settings):
         self.settings = settings
+        serialInst.port = "COM" + str(self.settings.port)
         self.AudioSessions = Audio.getSessions()
         self.port = settings.port
         self.ArduinoState = False

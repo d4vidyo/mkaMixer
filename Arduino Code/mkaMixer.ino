@@ -7,28 +7,49 @@ CRGB leds[ChannelNumbers];
 #define green 96
 #define blue 160
 
-enum status {unknown, notSet, noAudioSession, active};
+enum status { unknown,
+              notSet,
+              noAudioSession,
+              active };
 
-class Channel {
-  public:
-    float Volume = 100;
-    bool Mute = false;
-    status state = notSet;
-    status previous = notSet;
-    int blinkCount = 0;
-    int buttonPin;
-    int potiPin;
+class Button {
+public:
+  int pin;
+  unsigned long start = 0;
+  unsigned long holdTimer = 0;
+  unsigned long doubleStart = 0;
+  unsigned long doubleTimer = 0;
 
-    Channel() {
-      this->buttonPin = 3;
-      this->potiPin = 0;
-    }
-    Channel(int button, int poti) {
-      this->buttonPin = button;
-      this->potiPin = poti;
-    }
+  Button(int pin) {
+    this->start = 0;
+    this->holdTimer = 0;
+    this->pin = pin;
+  }
 };
 
+class Channel {
+public:
+  float Volume = 100;
+  bool Mute = false;
+  status state = notSet;
+  status previous = notSet;
+  int blinkCount = 0;
+  int potiPin;
+  Button* button;
+
+  Channel() {
+    this->button = new Button(3);
+    this->potiPin = 0;
+  }
+  Channel(int buttonPin, int poti) {
+    this->button = new Button(buttonPin);
+    this->potiPin = poti;
+  }
+
+  ~Channel() {
+    delete button;
+  }
+};
 Channel* channels[ChannelNumbers];
 
 void setup() {
@@ -51,43 +72,92 @@ void setup() {
 
 void loop() {
   for (int i = 0; i < ChannelNumbers; i++) {
-    checkButton(channels[i]->buttonPin, i);
-    checkPoti(channels[i]->potiPin, i);
+    checkButton(i);
+    checkPoti(i);
   }
   checkForMessages();
   updateLEDs();
 }
 
-void checkButton(int pin, int channel) {
-#define SetTime 500
-#define SoloTime 25
-  static long start[ChannelNumbers] = {0};
-  static long ende[ChannelNumbers] = {0};
-  static bool blocked = false;
-  bool pressed = !digitalRead(pin);
+void checkButton(int channel) {
+#define holdTime 500
+#define pressTime 25
+#define doubleTime 500
+#define unsignedLongMax 4294967295
 
-  if(!pressed){
-    blocked = false;
-  }
-  if(blocked){
-    return;
+  if (channels[channel]->button->doubleTimer != unsignedLongMax) {
+    channels[channel]->button->doubleTimer = millis() - channels[channel]->button->doubleStart;
+    if (channels[channel]->button->doubleTimer > doubleTime) {
+      channels[channel]->button->doubleTimer = unsignedLongMax;
+    }
   }
 
-  if (ende[channel] - start[channel] > SetTime) {
-    Hold(channel);
-    start[channel] = millis();
-    blocked = true;    
-  }
-  else if (ende[channel] - start[channel] > SoloTime && !pressed) {
-    Single(channel);
+  bool pressed = !digitalRead(channels[channel]->button->pin);
+
+  if (!pressed) {
+    channels[channel]->button->start = millis();
+    if (channels[channel]->button->holdTimer >= pressTime && channels[channel]->button->holdTimer < holdTime) {
+      Single(channel);
+
+      if (channels[channel]->button->doubleTimer == unsignedLongMax) {
+        channels[channel]->button->doubleStart = millis();
+        channels[channel]->button->doubleTimer = 0;
+      } else {
+        DoublePress(channel);
+      }
+    }
+    channels[channel]->button->holdTimer = 0;
+  } else if (channels[channel]->button->holdTimer != unsignedLongMax) {
+    channels[channel]->button->holdTimer = millis() - channels[channel]->button->start;
+    if (channels[channel]->button->holdTimer >= holdTime) {
+      Hold(channel);
+      channels[channel]->button->holdTimer = unsignedLongMax;
+    }
   }
 
-  if (pressed) {
-    ende[channel] = millis();
+  /*
+#define holdTime 500
+#define pressTime 25
+#define doubleTime 500
+#define unsignedLongMax 4294967295
+  static unsigned long start = 0;
+  static unsigned long holdTimer = 0;
+  static unsigned long doubleStart = 0;
+  static unsigned long doubleTimer = unsignedLongMax;
+
+  bool pressed = !digitalRead(3);
+
+  if (doubleTimer != unsignedLongMax) {
+    doubleTimer = millis() - doubleStart;
+    if (doubleTimer > doubleTime) {
+      doubleTimer = unsignedLongMax;
+    }
   }
-  else {
-    start[channel] = millis();
+
+  if (!pressed) {
+    start = millis();
+    if (holdTimer >= pressTime && holdTimer < holdTime) {
+      leds[3] = CHSV(green, 255, brightness);
+      Serial.println("Once");
+
+      if (doubleTimer == unsignedLongMax) {
+        doubleStart = millis();
+        doubleTimer = 0;
+      } else {
+        leds[3] = CHSV(red, 255, brightness);
+        Serial.println(doubleTimer);
+      }
+    }
+    holdTimer = 0;
+  } else if (holdTimer != unsignedLongMax) {
+    holdTimer = millis() - start;
+    if (holdTimer >= holdTime) {
+      leds[3] = CHSV(blue, 255, brightness);
+      Serial.println("hold");
+      holdTimer = unsignedLongMax;
+    }
   }
+  */
 }
 
 void Hold(int channel) {
@@ -105,14 +175,17 @@ void Single(int channel) {
   }
 }
 
-void checkPoti(int pin, int channel) {
+void DoublePress(int channel) {
+  Serial.println((String)channel + " DOUBLE");
+}
+
+void checkPoti(int channel) {
 #define sensitivity 10
-  static int reading[ChannelNumbers] = {0};
-  int newReading = analogRead(pin);
+  static int reading[ChannelNumbers] = { 0 };
+  int newReading = analogRead(channels[channel]->potiPin);
   if (newReading >= reading[channel] + sensitivity || newReading <= reading[channel] - sensitivity) {
     reading[channel] = newReading;
-  }
-  else {
+  } else {
     return;
   }
 
@@ -129,7 +202,7 @@ void checkForMessages() {
     int seperator = input.indexOf(" ");
     int channel = input.substring(0, seperator).toInt();
     String message = input.substring(seperator + 1, input.length());
-    message.replace("\n" , "");
+    message.replace("\n", "");
     if (message == "SET_Succes") {
       Serial.println((String)channel + " " + (String)channels[channel]->Volume);
       channels[channel]->state = active;
@@ -184,19 +257,20 @@ void updateLEDs() {
 
 void blinkBlue(int channel) {
   int ledNr = ChannelNumbers - 1 - channel;
-  static int timer[ChannelNumbers] = {0};
+  static int timer[ChannelNumbers] = { 0 };
   int newTime = millis();
   if (newTime - timer[channel] < 300) {
     leds[ledNr] = CHSV(blue, 255, brightness);
     return;
-  } timer[channel] = millis();
+  }
+  timer[channel] = millis();
   leds[ledNr] = CHSV(blue, 255, 0);
 }
 
 void blinkRed(int channel) {
 #define period 500
   int ledNr = ChannelNumbers - 1 - channel;
-  static long timer[ChannelNumbers] = {0};
+  static long timer[ChannelNumbers] = { 0 };
   long newTime = millis();
   long delta = newTime - timer[channel];
   if (delta > 2 * period) {

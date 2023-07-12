@@ -1,6 +1,6 @@
 import os
 import sys
-from PySide2 import QtWidgets, QtGui
+from PySide6 import QtWidgets, QtGui
 import time
 import threading
 
@@ -25,7 +25,7 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         self.activated.connect(self.onTrayIconActivated)
 
     def onTrayIconActivated(self, reason):
-        if reason == self.DoubleClick:
+        if reason == QtWidgets.QSystemTrayIcon.DoubleClick:
             self.openWindow()
 
     def openWindow(self):    

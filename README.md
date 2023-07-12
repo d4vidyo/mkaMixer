@@ -40,3 +40,12 @@ pip install pyserial
 ```shell
 pip install Pillow
 ```
+
+Build with:
+```shell
+pip install nuitka
+```
+Command used to generate .exe:
+```shell
+python -m nuitka --standalone --onefile --mingw64 --disable-console --output-dir=Build --remove-output --enable-plugin=pyside6 --enable-plugin=tk-inter --windows-icon-from-ico=Images\exeIcon.ico mkaMixer.py
+```
